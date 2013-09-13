@@ -20,6 +20,7 @@ def traverse_collection(httpclient, url):
     """Traverse a collection, yielding every item."""
     while True:
         response = httpclient.get(url)
+        response.raise_for_status()
         collection = response.json()
         for item in collection['items']:
             yield item

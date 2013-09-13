@@ -25,6 +25,14 @@ class InternalServerError(GilliamError):
     pass
 
 
+class ConflictError(GilliamError):
+    pass
+
+
+class ResolveError(GilliamError):
+    pass
+
+
 def convert_error(err):
     """Convenience function for converting from common catched errors
     to errors based on GilliamError.
@@ -35,6 +43,8 @@ def convert_error(err):
         status_code = err.args[0]
         if status_code == 500:
             raise InternalServerError(str(err))
+        elif status_code == 409:
+            raise ConflictError(str(err))
         else:
             raise GilliamError(str(err))
     elif isinstance(err, requests_exceptions.RequestException):

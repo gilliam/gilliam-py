@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import json
+
 from . import util, errors
 
 
@@ -34,6 +36,13 @@ class SchedulerClient(object):
         except Exception, err:
             errors.convert_error(err)
 
+    def instances(self, formation):
+        try:
+            return util.traverse_collection(
+                self.client, self._url('/formation/%s/instances', formation))
+        except Exception, err:
+            errors.convert_error(err)
+
     def create_formation(self, formation):
         """Try to create a formation with the given name."""
         request = {'name': formation}
@@ -41,10 +50,9 @@ class SchedulerClient(object):
             response = self.client.post(self._url('/formation'),
                                         data=json.dumps(request))
             response.raise_for_status()
+            return response.json()
         except Exception, err:
             errors.convert_error(err)
-        else:
-            return response.json()
 
     def create_release(self, formation, name, author, message,
                        services):
@@ -55,10 +63,9 @@ class SchedulerClient(object):
                 self._url('/formation/%s/release', formation),
                 data=json.dumps(request))
             response.raise_for_status()
+            return response.json()
         except Exception, err:
             errors.convert_error(err)
-        else:
-            return response.json()
 
     def scale(self, formation, release, scales):
         request = {'scales': scales}
@@ -67,10 +74,9 @@ class SchedulerClient(object):
                     '/formation/%s/release/%s/scale', formation, release),
                 data=json.dumps(request))
             response.raise_for_status()
-        except Exception, err:
-            errors.convert_error(response)
-        else:
             return response.json()
+        except Exception, err:
+            errors.convert_error(err)
 
     def spawn(self, formation, release, image, command,
               env, ports, assigned_to=None):
@@ -83,8 +89,6 @@ class SchedulerClient(object):
                 self._url('/formation/%s/instance', formation),
                 data=json.dumps(request))
             response.raise_for_status()
-        except HTTPError, err:
-            errors.convert_error(response)
-            raise
-        else:
             return response.json()
+        except HTTPError, err:
+            errors.convert_error(err)

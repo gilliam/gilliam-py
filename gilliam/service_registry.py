@@ -17,13 +17,15 @@
 import logging
 import json
 import random
-import requests
-from requests.exceptions import (RequestException, ConnectionError,
-                                 TooManyRedirects)
 import threading
 from urlparse import urljoin, urlsplit, urlunsplit
 
 from circuit import CircuitBreakerSet, CircuitOpenError
+from requests.exceptions import (RequestException, ConnectionError,
+                                 TooManyRedirects)
+import requests
+
+from . import errors
 
 
 class _Registration(object):
@@ -104,6 +106,80 @@ class _FormationCache(object):
             return dict(self._cache)
 
 
+class Resolver(object):
+    """Resolver."""
+
+    def __init__(self, client, search_domain=''):
+        self.client = client
+        self.search_domain = search_domain.split('.')
+
+    def resolve_url(self, url):
+        """Given a URL, return a resolved url."""
+        u = urlsplit(url)
+        host, port = self.resolve_host_port(u.hostname, int(u.port))
+        return urlunsplit((u.scheme, '%s:%d' % (host, port),
+                           u.path, u.query, u.fragment))
+
+    def resolve_host_port(self, host, port):
+        """Given a host and a port, return resolved host and port."""
+        if '.' in host and not host.endswith(".service"):
+            return host, port
+        return self._resolve(host, port)
+
+    def _resolve(self, host, port):
+        parts = host.split('.')
+        # trying to resolve a local name within the same formation.
+        # if a search domain has not been specified, raise an error,
+        # since we do not know how to proceed without one.
+        if len(parts) == 1:
+            # parts = [service]
+            if not self.search_domain:
+                raise errors.ResolveError("no search domain specified")
+            host, port = self._resolve_any(port, parts[0], self.search_domain[0])
+        elif len(parts) == 3:
+            # parts = [service, formation, '.service']
+            host, port = self._resolve_any(port, parts[0], parts[1])
+        elif len(parts) == 4:
+            # parts = [instance, service, formation, '.service']
+            host, port = self._resolve_one(port, parts[0], parts[1],
+                                           parts[2])
+        return host, port
+
+    def _select(self, formation, **filters):
+        return [d for (k, d) in self.client.query_formation(formation)
+                if all((d[attr] == v) for (attr, v) in filters.items())]
+
+    def _resolve_port(self, announcement, port):
+        """Resolve port mapping in instance announcement."""
+        if str(port) not in announcement['ports']:
+            raise errors.ResolveError('port %d not exposed' % (port,))
+        return int(announcement['ports'][str(port)])
+
+    def _resolve_one(self, port, instance, service, formation):
+        """Resolve a specific instance of a service in a formation.
+        """
+        alts = self._select(formation, service=service, instance=instance)
+        if not alts:
+            raise errors.ResolveError("%s.%s.%s.service:%d: no such instance" % (
+                    instance, service, formation, port))
+
+        # XXX: alts should only be one here, but we never know, right?
+        alt = random.choice(alts)
+        return alt['host'], self._resolve_port(alt, port)
+
+    def _resolve_any(self, port, service, formation):
+        """Resolve to any of the instances for the specified
+        service.
+        """
+        alts = self._select(formation, service=service)
+        if not alts:
+            raise errors.ResolveError("%s.%s.service:%d: no instances" % (
+                    service, formation, port))
+
+        alt = random.choice(alts)
+        return alt['host'], self._resolve_port(alt, port)
+
+
 class ServiceRegistryClient(object):
 
     def __init__(self, clock, cluster_nodes):
@@ -119,6 +195,8 @@ class ServiceRegistryClient(object):
         self.breaker.handle_error(RequestException)
         self.breaker.handle_error(ConnectionError)
         self.breaker.handle_error(TooManyRedirects)
+        # backward compatible
+        self.resolve = Resolver(self).resolve_url
 
     def _request(self, method, uri, **kwargs):
         """Issue a request to SOME of the nodes in the cluster."""
@@ -168,43 +246,3 @@ class ServiceRegistryClient(object):
         up to date until stopped.
         """
         return _FormationCache(self, form_name, factory, interval).start()
-
-    # FIXME: refactor
-
-    def _resolve_port(self, d, port):
-        if str(port) not in d['ports']:
-            raise ValueError("instance do not expose port")
-        return d['ports'][str(port)]
-
-    def _resolve_any(self, port, formation, service):
-        alts = [d for (k, d) in self.query_formation(formation)
-                if k.startswith(service + '.')]
-        if not alts:
-            raise Exception("no instances [formation: %s service: %s]" % (
-                    formation, service))
-        alt = random.choice(alts)
-        return alt['host'], self._resolve_port(alt, port)
-
-    def _resolve_specific(self, port, formation, service, name):
-        alts = [d for (k, d) in self.query_formation(formation)
-                if k.startswith(service + '.' + name)]
-        if not alts:
-            raise Exception("no instances [formation: %s service: %s instance: %s]" % (
-                    formation, service, name))
-        alt = random.choice(alts)
-        return alt['host'], self._resolve_port(alt, port)
-
-    def resolve(self, url):
-        """Resolve a URL into a direct url."""
-        u = urlsplit(url)
-        if not u.hostname.endswith(".service"):
-            return url
-        parts = u.hostname.split('.')
-        if len(parts) == 4:
-            hostname, port = self._resolve_specific(u.port, parts[2],
-                                                    parts[1], parts[0])
-        elif len(parts) == 3:
-            hostname, port = self._resolve_any(u.port, parts[1], parts[0])
-        netloc = '%s:%d' % (hostname, int(port))
-        print "RUN AT", netloc
-        return urlunsplit((u.scheme, netloc, u.path, u.query, u.fragment))
