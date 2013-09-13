@@ -13,5 +13,20 @@
 # limitations under the License.
 
 from .executor import ExecutorClient
-from .builder import BuilderClient
-from .scheduler import SchedulerClient
+from .util import thread
+
+
+class BuilderClient(object):
+    """API client for the builder service."""
+
+    def __init__(self, client):
+        self.executor = ExecutorClient(client)
+
+    def build(self, repository, tag, infile, output,
+              formation='builder', image='gilliam/base'):
+        process = self.executor.run(formation, image, {}, ['/build/builder'])
+        thread(process.attach, infile, output)
+        result = process.wait()
+        if result == 0:
+            process.commit(repository, tag)
+        return result

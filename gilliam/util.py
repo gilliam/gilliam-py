@@ -12,6 +12,24 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-from .executor import ExecutorClient
-from .builder import BuilderClient
-from .scheduler import SchedulerClient
+from urlparse import urljoin
+import threading
+
+
+def traverse_collection(httpclient, url):
+    """Traverse a collection, yielding every item."""
+    while True:
+        response = httpclient.get(url)
+        collection = response.json()
+        for item in collection['items']:
+            yield item
+        if not 'next' in collection['links']:
+            break
+        url = urljoin(url, collection['links']['next'])
+
+
+def thread(fn, *args, **kw):
+    t = threading.Thread(target=fn, args=args, kwargs=kw)
+    t.daemon = True
+    t.start()
+    return t

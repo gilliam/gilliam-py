@@ -20,12 +20,8 @@ import random
 import requests
 from requests.exceptions import (RequestException, ConnectionError,
                                  TooManyRedirects)
-from urlparse import urljoin
-
 import threading
-
-from gevent.event import Event
-import gevent
+from urlparse import urljoin, urlsplit, urlunsplit
 
 from circuit import CircuitBreakerSet, CircuitOpenError
 
@@ -33,18 +29,19 @@ from circuit import CircuitBreakerSet, CircuitOpenError
 class _Registration(object):
     """A service registration."""
 
-    def __init__(self, client, form_name, instance_name, data,
+    def __init__(self, client, form_name, service, instance_name, data,
                  interval=3):
         self.stopped = threading.Event()
         self.client = client
         self.form_name = form_name
+        self.service = service
         self.instance_name = instance_name
         self.data = data
         self.interval = interval
         self._thread = None
 
     def _loop(self):
-        uri = '/%s/%s' % (self.form_name, self.instance_name)
+        uri = '/%s/%s.%s' % (self.form_name, self.service, self.instance_name)
         while not self.stopped.isSet():
             try:
                 response = self.client._request(
@@ -138,9 +135,9 @@ class ServiceRegistryClient(object):
         else:
             raise Exception("NO MACHIEN TO TALK TOOO")
 
-    def register(self, form_name, instance_name, data):
+    def register(self, form_name, service, instance_name, data):
         """Register an instance with a formation."""
-        return _Registration(self, form_name, instance_name, data).start()
+        return _Registration(self, form_name, service, instance_name, data).start()
 
     def build_announcement(self, formation, service, instance,
                            ports={}, **kwargs):
@@ -183,7 +180,8 @@ class ServiceRegistryClient(object):
         alts = [d for (k, d) in self.query_formation(formation)
                 if k.startswith(service + '.')]
         if not alts:
-            raise Exception("no instances")
+            raise Exception("no instances [formation: %s service: %s]" % (
+                    formation, service))
         alt = random.choice(alts)
         return alt['host'], self._resolve_port(alt, port)
 
@@ -191,20 +189,22 @@ class ServiceRegistryClient(object):
         alts = [d for (k, d) in self.query_formation(formation)
                 if k.startswith(service + '.' + name)]
         if not alts:
-            raise Exception("no instances")
+            raise Exception("no instances [formation: %s service: %s instance: %s]" % (
+                    formation, service, name))
         alt = random.choice(alts)
         return alt['host'], self._resolve_port(alt, port)
 
     def resolve(self, url):
         """Resolve a URL into a direct url."""
-        u = urlparse.urlsplit(url)
-        assert u.hostname.endswith('.service'), "must end with .service"
+        u = urlsplit(url)
+        if not u.hostname.endswith(".service"):
+            return url
         parts = u.hostname.split('.')
         if len(parts) == 4:
             hostname, port = self._resolve_specific(u.port, parts[2],
                                                     parts[1], parts[0])
         elif len(parts) == 3:
             hostname, port = self._resolve_any(u.port, parts[1], parts[0])
-        netloc = '%s:%d' % (hostname, port)
-        return urlparse.urlunsplit((u.scheme, netloc, u.path,
-                                    u.query, u.fragment))
+        netloc = '%s:%d' % (hostname, int(port))
+        print "RUN AT", netloc
+        return urlunsplit((u.scheme, netloc, u.path, u.query, u.fragment))
