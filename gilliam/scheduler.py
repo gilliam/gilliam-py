@@ -78,17 +78,31 @@ class SchedulerClient(object):
         except Exception, err:
             errors.convert_error(err)
 
-    def spawn(self, formation, release, image, command,
-              env, ports, assigned_to=None):
+    def migrate(self, formation, release, from_release=None):
+        request = {'from': from_release}
         try:
-            request = {
-                'release': release, 'image': image, 'command': command,
-                'env': env, 'ports': ports, 'assigned_to': assigned_to
-                }
-            response = self.client.post(
-                self._url('/formation/%s/instance', formation),
+            response = self.client.post(self._url(
+                    '/formation/%s/release/%s/migrate', formation, release),
                 data=json.dumps(request))
             response.raise_for_status()
             return response.json()
-        except HTTPError, err:
+        except Exception, err:
+            errors.convert_error(err)
+
+    def spawn(self, formation, service, release, image, command,
+              env, ports, assigned_to=None, requirements=[],
+              rank=None):
+        try:
+            placement = {'requirements': requirements, 'rank': rank}
+            request = {
+                'service': service, 'release': release, 'image': image,
+                'command': command, 'env': env, 'ports': ports,
+                'assigned_to': assigned_to, 'placement': placement,
+                }
+            response = self.client.post(
+                self._url('/formation/%s/instances', formation),
+                data=json.dumps(request))
+            response.raise_for_status()
+            return response.json()
+        except Exception, err:
             errors.convert_error(err)
