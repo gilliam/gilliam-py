@@ -15,3 +15,4 @@
 from .executor import ExecutorClient
 from .builder import BuilderClient
 from .scheduler import SchedulerClient
+from .router import RouterClient
