@@ -17,6 +17,8 @@
 import logging
 import json
 import random
+import os
+import time
 import threading
 from urlparse import urljoin, urlsplit, urlunsplit
 
@@ -246,3 +248,9 @@ class ServiceRegistryClient(object):
         up to date until stopped.
         """
         return _FormationCache(self, form_name, factory, interval).start()
+
+
+def make_client():
+    """Construct a service registry client."""
+    return ServiceRegistryClient(
+        time, os.getenv('GILLIAM_SERVICE_REGISTRY_NODES', '').split(','))

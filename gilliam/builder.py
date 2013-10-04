@@ -22,11 +22,11 @@ class BuilderClient(object):
     def __init__(self, client):
         self.executor = ExecutorClient(client)
 
-    def build(self, repository, tag, infile, output,
-              formation='builder', image='gilliam/base'):
+    def build(self, repository, tag, infile, output, auth=None,
+              formation='builder', image='gilliam/base', nopush=False):
         process = self.executor.run(formation, image, {}, ['/build/builder'])
         thread(process.attach, infile, output)
         result = process.wait()
         if result == 0:
-            process.commit(repository, tag)
+            process.commit(repository, tag, auth, nopush=nopish)
         return result

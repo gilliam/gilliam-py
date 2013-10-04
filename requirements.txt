@@ -1,0 +1,3 @@
+requests
+python-circuit
+websocket-client
