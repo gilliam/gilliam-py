@@ -14,22 +14,19 @@
 
 """Simple example of how to run an arbitraty image on an executor."""
 
-import json
-import sys
-import threading
-import tty
+import contextlib
 from functools import partial
+import os
+import sys
+import termios
+import threading
 
-from gilliam.adapter import ResolvingHTTPAdapter
+from requests.adapters import HTTPAdapter
+import requests
+
+from gilliam.adapter import (WebSocketAdapter, ResolveAdapter)
 from gilliam.service_registry import make_client, Resolver
 from gilliam import ExecutorClient
-
-import contextlib
-import os
-
-import requests
-import curses
-import termios
 
 
 def _thread(fn, *args, **kw):
@@ -60,15 +57,17 @@ def console():
 
 def example():
     http = requests.Session()
-    http.mount('http://', ResolvingHTTPAdapter(Resolver(make_client())))
+    resolver = Resolver(make_client())
+    http.mount('http://', ResolveAdapter(HTTPAdapter(), resolver))
+    http.mount('ws://', ResolveAdapter(WebSocketAdapter(), resolver))
 
     client = ExecutorClient(http)
     reader = iter(partial(sys.stdin.read, 1), '')
 
+    process = client.run('examples', 'ubuntu', {}, ['/bin/bash'],
+                         tty=os.isatty(sys.stdin.fileno()))
     with console():
-        process = client.run('examples', 'ubuntu', {}, ['/bin/bash'],
-                             tty=os.isatty(sys.stdin.fileno()))
-        t = _thread(process.attach, reader, sys.stdout)
+        _thread(process.attach, reader, sys.stdout, replay=True)
         exit_code = process.wait()
 
     sys.exit(exit_code)
