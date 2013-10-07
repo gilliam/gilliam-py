@@ -54,7 +54,7 @@ class _RunningProcess(object):
         t = threading.Thread(target=_wait, args=(e,))
         t.daemon = True
         t.start()
-        t.join(timeout)
+        t.join(timeout or 2**31)
         e.set()
         return self.status
 
