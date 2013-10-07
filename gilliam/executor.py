@@ -17,14 +17,8 @@ import threading
 import time
 
 from .packages import websocket
+from .util import thread
 from . import errors
-
-
-def _thread(fn, *args, **kw):
-    t = threading.Thread(target=fn, args=args, kwargs=kw)
-    t.daemon = True
-    t.start()
-    return t
 
 
 class _RunningProcess(object):
@@ -115,13 +109,13 @@ class _RunningProcess(object):
             except websocket.WebSocketConnectionClosedException:
                 pass
         
-        sender = _thread(send)
-        recver = _thread(recv)
+        sender = thread(send)
+        recver = thread(recv)
 
         for t in (sender, recver):
             t.join()
 
-    def commit(self, repository, tag, credentials=None):
+    def commit(self, repository, tag):
         """Commit the container into an image.
 
         :param repository: Repository to store the image in.
@@ -136,8 +130,6 @@ class _RunningProcess(object):
         :raises: HTTPError
         """
         request = {'repository': repository, 'tag': tag}
-        if credentials:
-            request['credentials'] = credentials
         response = self.client.post('%s/commit' % (self._url,),
                                     data=json.dumps(request))
         response.raise_for_status()
