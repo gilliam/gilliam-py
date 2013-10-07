@@ -45,6 +45,7 @@ import time
 import logging
 import traceback
 import sys
+import errno
 
 """
 websocket python client.
@@ -746,6 +747,11 @@ class WebSocket(object):
     def _send(self, data):
         try:
             return self.sock.send(data)
+        except socket.error as e:
+            if e.errno in (errno.EPIPE,):
+                raise WebSocketConnectionClosedException()
+            else:
+                raise
         except socket.timeout as e:
             raise WebSocketTimeoutException(e.message)
         except Exception as e:
