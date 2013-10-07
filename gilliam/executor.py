@@ -161,6 +161,16 @@ class ExecutorClient(object):
         path_info = fmt % args
         return self.base_url + path_info
 
+    def push_image(self, repository, tag, auth={}):
+        """Push image."""
+        request = {'repository': repository, 'tag': tag, 'auth': auth}
+        try:
+            response = self.client.post(self._url('/_push_image'),
+                                        data=json.dumps(request))
+            response.raise_for_status()
+        except Exception, err:
+            errors.convert_error(err)
+
     def _run(self, formation, image, env, command, tty):
         request = {'formation': formation, 'image': image,
                    'env': env, 'command': command, 'tty': tty}
