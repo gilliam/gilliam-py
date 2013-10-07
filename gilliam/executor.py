@@ -64,7 +64,7 @@ class _RunningProcess(object):
         e.set()
         return self.status
 
-    def attach(self, input, output):
+    def attach(self, input, output, replay=False):
         """Attach to the input and output streams of the process.
 
         Waits for the process to enter state `running` before
@@ -80,34 +80,40 @@ class _RunningProcess(object):
 
         :param output: Write output from the process to this
             `file`-like object.
+
+        :param replay: If `True`, replay output data that has been
+            captured earlier.
         """
         self._wait_for_state('running')
 
+        params = {}
+        if replay:
+            params['logs'] = 1
+
         url = '%s/attach' % (self._url,)
-        adapter = self.client.get_adapter(url)
-        if hasattr(adapter, '_resolver'):
-            url = adapter._resolver.resolve_url(url)
+        url = url.replace('http://', 'ws://').replace('https://', 'wss://')
 
-        url = url.replace('http://', 'ws://')
-        url = url.replace('https://', 'wss://')
-
-        ws = websocket.create_connection(url)
+        resp = self.client.get(url, params=params)
+        resp.raise_for_status()
+        ws = resp.websocket
 
         def send():
-            print "START STUFF"
-            for data in input:
-                #print "I GOT SOME DATA TO SEND", data
-                ws.send_binary(data)
-            print "DONE"
+            try:
+                for data in input:
+                    ws.send_binary(data)
+            except websocket.WebSocketConnectionClosedException:
+                pass
 
         def recv():
-            while True:
-                data = ws.recv()
-                if not data:
-                    break
-                else:
-                    #print "WOW", data
-                    output.write(data)
+            try:
+                while True:
+                    data = ws.recv()
+                    if not data:
+                        break
+                    else:
+                        output.write(data)
+            except websocket.WebSocketConnectionClosedException:
+                pass
         
         sender = _thread(send)
         recver = _thread(recv)
