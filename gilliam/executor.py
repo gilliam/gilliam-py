@@ -78,7 +78,7 @@ class _RunningProcess(object):
         :param replay: If `True`, replay output data that has been
             captured earlier.
         """
-        self._wait_for_state('running')
+        self.wait_for_state('running')
 
         params = {}
         if replay:
@@ -134,7 +134,7 @@ class _RunningProcess(object):
                                     data=json.dumps(request))
         response.raise_for_status()
 
-    def _wait_for_state(self, *states):
+    def wait_for_state(self, *states):
         """Wait for the process to enter one of the specified states.
 
         :params states: The expected state.
