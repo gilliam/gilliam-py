@@ -149,6 +149,13 @@ class _RunningProcess(object):
             else:
                 self._clock.sleep(3)
 
+    def resize_tty(self, width, height):
+        """Set size of process TTY to `width` x `height`."""
+        params = {'w': str(width), 'h': str(height)}
+        response = self.client.post('%s/resize' % (self._url,),
+                                    params=params)
+        response.raise_for_status()
+
 
 class ExecutorClient(object):
     """Client interface for the executor."""
