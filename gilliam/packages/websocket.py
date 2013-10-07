@@ -387,7 +387,10 @@ class WebSocket(object):
         self._frame_length = None
         self._frame_mask = None
         self._cont_data = None
-
+        self.resp_headers = {}
+        self.proxy_reps_headers = {}
+        self.status = None
+        
     def fileno(self):
         return self.sock.fileno()
 
@@ -440,8 +443,8 @@ class WebSocket(object):
 
         """
         hostname, port, resource, is_secure = _parse_url(url)
-        # TODO: we need to support proxy
-        self.sock.connect((hostname, port))
+        self._connect(url, **options)
+
         if is_secure:
             if HAVE_SSL:
                 if self.sslopt is None:
@@ -487,17 +490,43 @@ class WebSocket(object):
             logger.debug(header_str)
             logger.debug("-----------------------")
 
-        status, resp_headers = self._read_headers()
-        if status != 101:
+        self.status, self.resp_headers = self._read_headers()
+        if self.status != 101:
             self.close()
-            raise WebSocketException("Handshake Status %d" % status)
+            raise WebSocketException("Handshake Status %d" % self.status)
 
-        success = self._validate_header(resp_headers, key)
+        success = self._validate_header(self.resp_headers, key)
         if not success:
             self.close()
             raise WebSocketException("Invalid WebSocket Header")
 
         self.connected = True
+
+    def _connect(self, url, **options):
+        hostname, port, resource, is_secure = _parse_url(url)
+
+        proxy = options.get('proxy')
+        if proxy:
+            self._tunnel(proxy, hostname, port,
+                         options.get('proxy_headers', {}))
+        else:
+            self.sock.connect((hostname, port))
+
+    def _tunnel(self, (proxy_hostname, proxy_port), host, port, headers):
+        self.sock.connect((proxy_hostname, proxy_port))
+        self.sock.send("CONNECT %s:%d HTTP/1.0\r\n" % (host, port))
+
+        if not 'Host' in headers:
+            headers['Host'] = '%s:%s' % (host, port)
+        for header, value in headers.iteritems():
+            self.sock.send("%s: %s\r\n" % (header, value))
+        self.sock.send("\r\n")
+
+        self.status, self.proxy_resp_headers = self._read_headers()
+        if self.status != 200:
+            self.close()
+            raise socket.error("Tunnel connection failed: %d %s" % (status,
+                                                                    'foo'))
 
     def _validate_header(self, headers, key):
         for k, v in _HEADERS_TO_CHECK.iteritems():
