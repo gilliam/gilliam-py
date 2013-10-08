@@ -168,9 +168,20 @@ class ExecutorClient(object):
         path_info = fmt % args
         return self.base_url + path_info
 
-    def push_image(self, repository, tag, auth={}):
-        """Push image."""
-        request = {'repository': repository, 'tag': tag, 'auth': auth}
+    def push_image(self, image, auth={}):
+        """Push an image to its registry.
+
+        Which registry is determined based on `repository`; if it
+        contains a dot or a colon, it is considered a hostname,
+        otherwise it is determinted to be a username on the official
+        registry.
+
+        :param tag: Which tag of the image to push.
+
+        :param auth: Credentials to authenticate with against the
+            registry.
+        """
+        request = {'image': image, 'auth': auth}
         try:
             response = self.client.post(self._url('/_push_image'),
                                         data=json.dumps(request))
