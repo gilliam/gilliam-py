@@ -33,6 +33,8 @@ class ResolveAdapter(object):
         self._resolver = resolver
 
     def send(self, request, *args, **kwargs):
+        netloc = urlparse(request.url).netloc
+        request.headers['Host'] = netloc
         request.prepare_url(self._resolver.resolve_url(request.url), {})
         return self.original.send(request, *args, **kwargs)
 
