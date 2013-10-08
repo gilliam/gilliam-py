@@ -149,7 +149,7 @@ class Resolver(object):
 
     def _select(self, formation, **filters):
         return [d for (k, d) in self.client.query_formation(formation)
-                if all((d[attr] == v) for (attr, v) in filters.items())]
+                if all((d[attr].lower() == v) for (attr, v) in filters.items())]
 
     def _resolve_port(self, announcement, port):
         """Resolve port mapping in instance announcement."""
@@ -160,7 +160,8 @@ class Resolver(object):
     def _resolve_one(self, port, instance, service, formation):
         """Resolve a specific instance of a service in a formation.
         """
-        alts = self._select(formation, service=service, instance=instance)
+        alts = self._select(formation, service=service,
+                            instance=instance.lower())
         if not alts:
             raise errors.ResolveError("%s.%s.%s.service:%d: no such instance" % (
                     instance, service, formation, port))
