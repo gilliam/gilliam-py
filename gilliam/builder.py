@@ -19,8 +19,8 @@ from .util import thread
 class BuilderClient(object):
     """API client for the builder service."""
 
-    def __init__(self, client):
-        self.executor = ExecutorClient(client)
+    def __init__(self, client, executor=None):
+        self.executor = executor or ExecutorClient(client)
 
     def build(self, repository, tag, infile, output, formation='builder',
               image='gilliam/base'):
