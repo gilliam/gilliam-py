@@ -22,8 +22,8 @@ class BuilderClient(object):
     def __init__(self, client, executor=None):
         self.executor = executor or ExecutorClient(client)
 
-    def build(self, repository, tag, infile, output, formation='builder',
-              image='gilliam/base'):
+    def build(self, repository, tag, infile, output,
+              formation='builder', image='quay.io/gilliam/base'):
         process = self.executor.run(formation, image, {}, ['/build/builder'])
         thread(process.attach, infile, output)
         result = process.wait()
