@@ -168,26 +168,51 @@ class ExecutorClient(object):
         path_info = fmt % args
         return self.base_url + path_info
 
+    def _convert_image_error(self, detail):
+        if detail['code'] == 403:
+            return errors.PermissionError(detail['message'])
+        else:
+            return errors.InternalServerError(detail['message'])
+
     def push_image(self, image, auth={}):
         """Push an image to its registry.
 
-        Which registry is determined based on `repository`; if it
-        contains a dot or a colon, it is considered a hostname,
-        otherwise it is determinted to be a username on the official
-        registry.
+        Which registry is determined based on `image`; if it contains
+        a dot or a colon, it is considered a hostname, otherwise it is
+        determinted to be a username on the official registry.
 
-        :param tag: Which tag of the image to push.
+        Will yield status messages while the image is being pushed.
+
+        .. code-block: python
+
+           >>> for status in executor.push_image('name/image'):
+           ...     print status
+           ...
 
         :param auth: Credentials to authenticate with against the
             registry.
+
+        :raises: PermissionError, InternalServerError, GilliamError
+
+        :returns: An iterator that yields status messages while the
+            image is pushed.
         """
         request = {'image': image, 'auth': auth}
         try:
             response = self.client.post(self._url('/_push_image'),
-                                        data=json.dumps(request))
+                                        data=json.dumps(request),
+                                        stream=True)
             response.raise_for_status()
         except Exception, err:
             errors.convert_error(err)
+
+        ITER_CHUNK_SIZE = 1
+        for text in response.iter_lines(ITER_CHUNK_SIZE):
+            status = json.loads(text)
+            if 'error' in status:
+                raise self._convert_image_error(
+                    status['errorDetail'])
+            yield status
 
     def _run(self, formation, image, env, command, tty):
         request = {'formation': formation, 'image': image,

@@ -17,6 +17,7 @@ from requests import exceptions as requests_exceptions
 class GilliamError(Exception):
     """Base class for all errors."""
 
+
 class ConnectionError(GilliamError):
     pass
 
@@ -30,6 +31,10 @@ class ConflictError(GilliamError):
 
 
 class ResolveError(GilliamError):
+    pass
+
+
+class PermissionError(GilliamError):
     pass
 
 
