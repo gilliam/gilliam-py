@@ -30,6 +30,9 @@ import requests
 from . import errors
 
 
+log = logging.getLogger(__name__)
+
+
 class _Registration(object):
     """A service registration."""
 
@@ -47,12 +50,15 @@ class _Registration(object):
     def _loop(self):
         uri = '/%s/%s.%s' % (self.form_name, self.service, self.instance_name)
         while not self.stopped.isSet():
+            t0 = time.time()
             try:
                 response = self.client._request(
                     'PUT', uri, data=json.dumps(self.data))
             except Exception:
-                # FIXME: log exception
+                log.exception("could not talked to service registry")
                 pass
+            t1 = time.time()
+            log.info("time to update service registry: %f" % (t1 - t0))
             self.stopped.wait(self.interval)
 
     def start(self):
