@@ -53,12 +53,13 @@ class _Registration(object):
             t0 = time.time()
             try:
                 response = self.client._request(
-                    'PUT', uri, data=json.dumps(self.data))
+                    'PUT', uri, data=json.dumps(self.data),
+                    timeout=self.interval)
             except Exception:
                 log.exception("could not talked to service registry")
-                pass
+                raise
             t1 = time.time()
-            log.info("time to update service registry: %f" % (t1 - t0))
+            log.info("%s: time to update service registry: %f" % (self.service, t1 - t0))
             self.stopped.wait(self.interval)
 
     def start(self):
