@@ -56,7 +56,7 @@ class _Registration(object):
                     timeout=self.interval)
             except Exception:
                 self.log.exception("could not talk to service registry")
-                raise
+
             t1 = time.time()
             self.log.debug("time to update service registry: {0:.03f}".format(
                     t1 - t0))
