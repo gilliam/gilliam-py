@@ -30,14 +30,13 @@ import requests
 from . import errors
 
 
-log = logging.getLogger(__name__)
-
-
 class _Registration(object):
     """A service registration."""
 
     def __init__(self, client, form_name, service, instance_name, data,
                  interval=3):
+        self.log = logging.getLogger('{0}.reg.{1}/{2}.{3}'.format(
+                __name__, form_name, service, instance_name))
         self.stopped = threading.Event()
         self.client = client
         self.form_name = form_name
@@ -56,10 +55,11 @@ class _Registration(object):
                     'PUT', uri, data=json.dumps(self.data),
                     timeout=self.interval)
             except Exception:
-                log.exception("could not talked to service registry")
+                self.log.exception("could not talk to service registry")
                 raise
             t1 = time.time()
-            log.info("%s: time to update service registry: %f" % (self.service, t1 - t0))
+            self.log.debug("time to update service registry: {0:.03f}".format(
+                    t1 - t0))
             self.stopped.wait(self.interval)
 
     def start(self):
