@@ -43,6 +43,12 @@ class SchedulerClient(object):
         except Exception, err:
             errors.convert_error(err)
 
+    def formations(self):
+        try:
+            return util.traverse_collection(self.client, self._url('/formation'))
+        except Exception, err:
+            errors.convert_error(err)
+
     def create_formation(self, formation):
         """Try to create a formation with the given name."""
         request = {'name': formation}
