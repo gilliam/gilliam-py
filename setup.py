@@ -11,5 +11,8 @@ setup(
     description='Python bindings for the Gilliam platform',
     long_description=None,
     license='Apache 2.0',
-    install_requires=['requests', 'python-circuit']
+    install_requires=[
+        'requests >= 2.0',
+        'python-circuit'
+        ]
 )
