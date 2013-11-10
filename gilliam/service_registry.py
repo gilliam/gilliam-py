@@ -192,9 +192,12 @@ class Resolver(object):
 
 class ServiceRegistryClient(object):
 
-    def __init__(self, clock, cluster_nodes):
+    def __init__(self, clock, cluster_nodes=None):
         self.clock = clock
         self.cluster_nodes = []
+        if cluster_nodes is None:
+            cluster_nodes = os.getenv(
+                'GILLIAM_SERVICE_REGISTRY', '').split(',')
         for cluster_node in cluster_nodes:
             if not cluster_node.startswith('http://'):
                 cluster_node = 'http://%s' % (cluster_node,)
