@@ -1,2 +1,3 @@
 include versioneer.py
 recursive-include gilliam *.py
+include README.md
